@@ -1,7 +1,15 @@
 let React = {
   createElement: (tag, props, ...children) => {
     if (typeof tag == "function") {
-      return tag(props);
+      try {
+        return tag(props);
+      } catch ({ promise, key }) {
+        promise.then((data) => {
+          promiseCache.set(key, data);
+          rerender();
+        });
+        return { tag: "h1", props: { children: ["I am loading"] } };
+      }
     }
     var element = { tag, props: { ...props, children } };
     return element;
@@ -23,9 +31,24 @@ const useState = (initialState) => {
   return [states[FROZEN_STATE], setState];
 };
 
+const promiseCache = new Map();
+const createResource = (returningFunction, key) => {
+  if (promiseCache.has(key)) return promiseCache.get(key);
+
+  throw { promise: returningFunction(), key };
+};
+
 const App = () => {
   const [name, setName] = useState("Pranesh");
   const [count, setCount] = useState(0);
+  const dogPhotoUrl = createResource(
+    () =>
+      fetch("https://dog.ceo/api/breeds/image/random")
+        .then((res) => res.json())
+        .then((payload) => payload.message),
+    "dogPhoto"
+  );
+
   return (
     <div className="hello">
       <h1>Hello {name}!</h1>
@@ -39,6 +62,7 @@ const App = () => {
       />
       <h2>Count: {count}</h2>
       <button onclick={(e) => setCount(count + 1)}>+</button>
+      <img src={dogPhotoUrl} />
       <p>Welcome to Desconstructed React!</p>
     </div>
   );
